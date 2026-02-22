@@ -45,6 +45,15 @@ class ProfileStore(context: Context) {
     fun getAnimatedEmotes(): Boolean = prefs.getBoolean("animated_emotes", true)
     fun setAnimatedEmotes(enabled: Boolean) = prefs.edit().putBoolean("animated_emotes", enabled).apply()
 
+    fun getChatEmoteSize(): Float = prefs.getFloat("chat_emote_size", 22f)
+    fun setChatEmoteSize(sp: Float) = prefs.edit().putFloat("chat_emote_size", sp).apply()
+
+    fun getChatUsernameSize(): Float = prefs.getFloat("chat_username_size", 13f)
+    fun setChatUsernameSize(sp: Float) = prefs.edit().putFloat("chat_username_size", sp).apply()
+
+    fun getShowDebugBar(): Boolean = prefs.getBoolean("show_debug_bar", false)
+    fun setShowDebugBar(enabled: Boolean) = prefs.edit().putBoolean("show_debug_bar", enabled).apply()
+
     fun getEnable7tv(): Boolean = prefs.getBoolean("enable_7tv", true)
     fun setEnable7tv(enabled: Boolean) = prefs.edit().putBoolean("enable_7tv", enabled).apply()
 

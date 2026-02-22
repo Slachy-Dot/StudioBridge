@@ -28,16 +28,20 @@ class TwitchChatClient {
     private val _connected = MutableStateFlow(false)
     val connected: StateFlow<Boolean> = _connected
 
+    private val _roomId = MutableStateFlow("")
+    val roomId: StateFlow<String> = _roomId
+
     fun connect(channel: String) {
         disconnect()
         _messages.value = emptyList()
+        _roomId.value = ""
 
         val nick = "justinfan${(10000..99999).random()}"
         val req = Request.Builder().url("wss://irc-ws.chat.twitch.tv:443").build()
 
         socket = http.newWebSocket(req, object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                ws.send("CAP REQ :twitch.tv/tags")   // gives us color + display-name
+                ws.send("CAP REQ :twitch.tv/tags twitch.tv/commands")
                 ws.send("NICK $nick")
                 ws.send("JOIN #${channel.lowercase()}")
                 _connected.value = true
@@ -63,6 +67,23 @@ class TwitchChatClient {
         // Keep-alive
         if (line.startsWith("PING")) {
             socket?.send("PONG :tmi.twitch.tv")
+            return
+        }
+
+        // Extract the channel's Twitch user ID from ROOMSTATE
+        if (line.contains("ROOMSTATE")) {
+            if (line.startsWith("@")) {
+                val spaceIdx = line.indexOf(' ')
+                if (spaceIdx > 0) {
+                    line.substring(1, spaceIdx).split(";").forEach { tag ->
+                        val eqIdx = tag.indexOf('=')
+                        if (eqIdx >= 0 && tag.substring(0, eqIdx) == "room-id") {
+                            val id = tag.substring(eqIdx + 1)
+                            if (id.isNotEmpty()) _roomId.value = id
+                        }
+                    }
+                }
+            }
             return
         }
 
@@ -123,5 +144,6 @@ class TwitchChatClient {
         socket?.close(1000, null)
         socket = null
         _connected.value = false
+        _roomId.value = ""
     }
 }

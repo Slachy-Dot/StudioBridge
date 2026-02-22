@@ -18,9 +18,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.obscontroller.ConnectionState
+import com.Slachy.StudioBridge.ConnectionState
 import kotlinx.coroutines.delay
-import com.obscontroller.OBSProfile
+import com.Slachy.StudioBridge.OBSProfile
 
 // Sentinel value representing a blank "new profile" slot
 private val NEW_PROFILE = OBSProfile(id = "__new__", name = "", host = "", port = 4455, password = "")

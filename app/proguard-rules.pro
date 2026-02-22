@@ -1,5 +1,5 @@
 # Keep OBSProfile fields for Gson serialization
--keep class com.obscontroller.OBSProfile { *; }
+-keep class com.Slachy.StudioBridge.OBSProfile { *; }
 
 # OkHttp
 -dontwarn okhttp3.**

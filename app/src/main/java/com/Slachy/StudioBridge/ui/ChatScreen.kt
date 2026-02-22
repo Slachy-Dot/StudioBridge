@@ -26,9 +26,9 @@ import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.GifDecoder
-import com.obscontroller.MessageSegment
-import com.obscontroller.TwitchChatMessage
-import com.obscontroller.parseMessageSegments
+import com.Slachy.StudioBridge.MessageSegment
+import com.Slachy.StudioBridge.TwitchChatMessage
+import com.Slachy.StudioBridge.parseMessageSegments
 
 @Composable
 fun ChatScreen(
@@ -40,7 +40,10 @@ fun ChatScreen(
     emoteLoadReport: String,
     chatFontSize: Float,
     chatLineSpacing: Float,
+    chatEmoteSize: Float,
+    chatUsernameSize: Float,
     animatedEmotes: Boolean,
+    showDebugBar: Boolean,
     onConnect: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -104,11 +107,13 @@ fun ChatScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = emoteLoadReport,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
+                        if (showDebugBar) {
+                            Text(
+                                text = emoteLoadReport,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                        }
                     }
                     if (!chatConnected) {
                         TextButton(onClick = onConnect) { Text("Reconnect") }
@@ -153,6 +158,8 @@ fun ChatScreen(
                         twitchBadges = twitchBadges,
                         fontSize = chatFontSize,
                         lineSpacing = chatLineSpacing,
+                        emoteSize = chatEmoteSize,
+                        usernameSize = chatUsernameSize,
                         imageLoader = imageLoader
                     )
                 }
@@ -168,10 +175,12 @@ private fun ChatMessageRow(
     twitchBadges: Map<String, String>,
     fontSize: Float,
     lineSpacing: Float,
+    emoteSize: Float,
+    usernameSize: Float,
     imageLoader: ImageLoader
 ) {
     val badgeSize = (fontSize * 1.1f).sp
-    val emoteSize = (fontSize * 1.6f).sp
+    val emoteSizeSp = emoteSize.sp
 
     val defaultColor = MaterialTheme.colorScheme.primary
     val nameColor: Color = remember(message.color, defaultColor) {
@@ -193,7 +202,7 @@ private fun ChatMessageRow(
     }
 
     val inlineContent: Map<String, InlineTextContent> = remember(
-        message.id, thirdPartyEmotes.size, twitchBadges.size, imageLoader, fontSize
+        message.id, thirdPartyEmotes.size, twitchBadges.size, imageLoader, fontSize, emoteSize
     ) {
         buildMap {
             badgeUrls.forEach { url ->
@@ -208,7 +217,7 @@ private fun ChatMessageRow(
                 .distinctBy { it.url }
                 .forEach { emote ->
                     put(emote.url, InlineTextContent(
-                        Placeholder(emoteSize, emoteSize, PlaceholderVerticalAlign.TextCenter)
+                        Placeholder(emoteSizeSp, emoteSizeSp, PlaceholderVerticalAlign.TextCenter)
                     ) {
                         AsyncImage(model = emote.url, contentDescription = emote.name,
                             imageLoader = imageLoader, modifier = Modifier.fillMaxSize())
@@ -217,13 +226,13 @@ private fun ChatMessageRow(
         }
     }
 
-    val annotatedText = remember(message.id, thirdPartyEmotes.size, twitchBadges.size, nameColor) {
+    val annotatedText = remember(message.id, thirdPartyEmotes.size, twitchBadges.size, nameColor, usernameSize) {
         buildAnnotatedString {
             badgeUrls.forEachIndexed { i, url ->
                 appendInlineContent(url, "[badge]")
                 if (i < badgeUrls.lastIndex) append('\u2009') else append(' ')
             }
-            withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.SemiBold)) {
+            withStyle(SpanStyle(color = nameColor, fontWeight = FontWeight.SemiBold, fontSize = usernameSize.sp)) {
                 append(message.username)
             }
             append(": ")

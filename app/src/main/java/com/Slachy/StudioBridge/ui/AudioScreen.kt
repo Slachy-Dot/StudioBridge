@@ -12,8 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.obscontroller.OBSFilter
-import com.obscontroller.OBSInput
+import com.Slachy.StudioBridge.OBSFilter
+import com.Slachy.StudioBridge.OBSInput
 import kotlin.math.roundToInt
 
 // Volume range shown in the UI: -60 dB (silence) to +6 dB (slight gain)

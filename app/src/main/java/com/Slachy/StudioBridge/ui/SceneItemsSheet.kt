@@ -17,7 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.obscontroller.OBSSceneItem
+import com.Slachy.StudioBridge.OBSSceneItem
 
 // Flat list entries for the LazyColumn
 private sealed class UiEntry {

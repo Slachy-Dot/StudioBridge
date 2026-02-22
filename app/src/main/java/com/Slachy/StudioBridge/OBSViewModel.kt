@@ -321,12 +321,31 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
     private fun reloadEmotes() {
         viewModelScope.launch {
             emoteRepository.loadAll(_enable7tv.value, _enableBttv.value, _enableFfz.value)
+            val roomId = twitchChatClient.roomId.value
+            if (roomId.isNotEmpty()) {
+                emoteRepository.loadChannelEmotes(
+                    roomId, _twitchChannel.value,
+                    _enable7tv.value, _enableBttv.value, _enableFfz.value
+                )
+            }
         }
     }
 
     init {
+        // Load global emotes at startup
         viewModelScope.launch {
             emoteRepository.loadAll(_enable7tv.value, _enableBttv.value, _enableFfz.value)
+        }
+        // Load channel emotes whenever the IRC room-id is received
+        viewModelScope.launch {
+            twitchChatClient.roomId.collect { roomId ->
+                if (roomId.isNotEmpty()) {
+                    emoteRepository.loadChannelEmotes(
+                        roomId, _twitchChannel.value,
+                        _enable7tv.value, _enableBttv.value, _enableFfz.value
+                    )
+                }
+            }
         }
     }
 
@@ -349,12 +368,24 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
     private val _chatLineSpacing = MutableStateFlow(store.getChatLineSpacing())
     val chatLineSpacing: StateFlow<Float> = _chatLineSpacing
 
+    private val _chatEmoteSize = MutableStateFlow(store.getChatEmoteSize())
+    val chatEmoteSize: StateFlow<Float> = _chatEmoteSize
+
+    private val _chatUsernameSize = MutableStateFlow(store.getChatUsernameSize())
+    val chatUsernameSize: StateFlow<Float> = _chatUsernameSize
+
     private val _animatedEmotes = MutableStateFlow(store.getAnimatedEmotes())
     val animatedEmotes: StateFlow<Boolean> = _animatedEmotes
 
+    private val _showDebugBar = MutableStateFlow(store.getShowDebugBar())
+    val showDebugBar: StateFlow<Boolean> = _showDebugBar
+
     fun setChatFontSize(sp: Float) { store.setChatFontSize(sp); _chatFontSize.value = sp }
     fun setChatLineSpacing(dp: Float) { store.setChatLineSpacing(dp); _chatLineSpacing.value = dp }
+    fun setChatEmoteSize(sp: Float) { store.setChatEmoteSize(sp); _chatEmoteSize.value = sp }
+    fun setChatUsernameSize(sp: Float) { store.setChatUsernameSize(sp); _chatUsernameSize.value = sp }
     fun setAnimatedEmotes(enabled: Boolean) { store.setAnimatedEmotes(enabled); _animatedEmotes.value = enabled }
+    fun setShowDebugBar(enabled: Boolean) { store.setShowDebugBar(enabled); _showDebugBar.value = enabled }
 
     // ── Source management ─────────────────────────────────────────────────────
 

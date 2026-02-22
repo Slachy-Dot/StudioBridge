@@ -1,8 +1,10 @@
 package com.Slachy.StudioBridge.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,14 +18,20 @@ fun SettingsDialog(
     twitchChannel: String,
     chatFontSize: Float,
     chatLineSpacing: Float,
+    chatEmoteSize: Float,
+    chatUsernameSize: Float,
     animatedEmotes: Boolean,
+    showDebugBar: Boolean,
     enable7tv: Boolean,
     enableBttv: Boolean,
     enableFfz: Boolean,
     onSaveChannel: (String) -> Unit,
     onFontSizeChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
+    onEmoteSizeChange: (Float) -> Unit,
+    onUsernameSizeChange: (Float) -> Unit,
     onAnimatedEmotesChange: (Boolean) -> Unit,
+    onShowDebugBarChange: (Boolean) -> Unit,
     onEnable7tvChange: (Boolean) -> Unit,
     onEnableBttvChange: (Boolean) -> Unit,
     onEnableFfzChange: (Boolean) -> Unit,
@@ -35,7 +43,10 @@ fun SettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text("Settings") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
 
                 // ── Twitch channel ─────────────────────────────────────────
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -90,6 +101,27 @@ fun SettingsDialog(
                     )
                 }
 
+                // ── Username size ──────────────────────────────────────────
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Username Size", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${chatUsernameSize.roundToInt()} sp",
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                    Slider(
+                        value = chatUsernameSize,
+                        onValueChange = onUsernameSizeChange,
+                        valueRange = 10f..20f,
+                        steps = 9,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 // ── Line spacing ───────────────────────────────────────────
                 Column {
                     Row(
@@ -111,15 +143,38 @@ fun SettingsDialog(
                     )
                 }
 
-                // ── Reset chat display ─────────────────────────────────────
+                // ── Emote size ─────────────────────────────────────────────
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Emote Size", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${chatEmoteSize.roundToInt()} sp",
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                    Slider(
+                        value = chatEmoteSize,
+                        onValueChange = onEmoteSizeChange,
+                        valueRange = 16f..48f,
+                        steps = 15,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // ── Reset ──────────────────────────────────────────────────
                 TextButton(
                     onClick = {
                         onFontSizeChange(13f)
+                        onUsernameSizeChange(13f)
                         onLineSpacingChange(4f)
+                        onEmoteSizeChange(22f)
                     },
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text("Reset font & spacing to defaults",
+                    Text("Reset all to defaults",
                         style = MaterialTheme.typography.labelSmall)
                 }
 
@@ -141,6 +196,25 @@ fun SettingsDialog(
                     Switch(
                         checked = animatedEmotes,
                         onCheckedChange = onAnimatedEmotesChange
+                    )
+                }
+
+                // ── Debug status bar ───────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Show Debug Bar", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Show emote load counts in chat header",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    }
+                    Switch(
+                        checked = showDebugBar,
+                        onCheckedChange = onShowDebugBarChange
                     )
                 }
 

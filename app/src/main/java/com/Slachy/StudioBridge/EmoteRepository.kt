@@ -62,13 +62,40 @@ class EmoteRepository {
         _loadReport.value = "7tv:$s7tv bttv:$sBttv ffz:$sFfz bdg:$sBdg"
     }
 
+    /**
+     * Fetches channel-specific emotes for a joined channel and merges them into
+     * the existing third-party emote map (does NOT clear globals first).
+     * Requires the Twitch numeric room-id (from ROOMSTATE) and the channel login name.
+     */
+    suspend fun loadChannelEmotes(
+        channelId: String,
+        channelName: String,
+        enable7tv: Boolean = true,
+        enableBttv: Boolean = true,
+        enableFfz: Boolean = true
+    ) = withContext(Dispatchers.IO) {
+        fun mergeProvider(enabled: Boolean, fetch: () -> Map<String, String>): String {
+            if (!enabled) return "off"
+            return runCatching { fetch() }
+                .onSuccess { map -> _thirdPartyEmotes.update { current -> current + map } }
+                .fold({ it.size.toString() }, { it.javaClass.simpleName })
+        }
+
+        val s7tv  = mergeProvider(enable7tv)  { fetch7TVChannel(channelId) }
+        val sBttv = mergeProvider(enableBttv) { fetchBTTVChannel(channelId) }
+        val sFfz  = mergeProvider(enableFfz)  { fetchFFZChannel(channelName) }
+
+        val prev = _loadReport.value.substringBefore(" | ch:")
+        _loadReport.value = "$prev | ch: 7tv:$s7tv bttv:$sBttv ffz:$sFfz"
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun get(url: String): String? {
+    private fun get(url: String): String? = try {
         val req = Request.Builder().url(url).build()
         val resp = http.newCall(req).execute()
-        return if (resp.isSuccessful) resp.body?.string() else null
-    }
+        if (resp.isSuccessful) resp.body?.string() else null
+    } catch (_: Exception) { null }
 
     // ── 7TV global emotes ─────────────────────────────────────────────────────
     // GET https://7tv.io/v3/emote-sets/global
@@ -147,18 +174,110 @@ class EmoteRepository {
         return map
     }
 
+    // ── 7TV channel emotes ────────────────────────────────────────────────────
+    // GET https://7tv.io/v3/users/twitch/{twitch_user_id}
+    // Response: { emote_set: { emotes: [{ name, data: { host: { url, files } } }] } }
+
+    private fun fetch7TVChannel(channelId: String): Map<String, String> {
+        val body = get("https://7tv.io/v3/users/twitch/$channelId") ?: return emptyMap()
+        val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
+            ?: return emptyMap()
+        val arr  = root.getAsJsonObject("emote_set")?.getAsJsonArray("emotes") ?: return emptyMap()
+        val map  = mutableMapOf<String, String>()
+        arr.forEach { el ->
+            runCatching {
+                val obj     = el.asJsonObject
+                val name    = obj.get("name").asString
+                val data    = obj.getAsJsonObject("data")
+                val hostObj = data.getAsJsonObject("host")
+                val hostUrl = hostObj.get("url").asString
+                val files   = hostObj.getAsJsonArray("files")
+                val hasGif  = files?.any { it.asJsonObject.get("name")?.asString == "1x.gif" } == true
+                val ext     = if (hasGif) "1x.gif" else "1x.webp"
+                map[name]   = "https:$hostUrl/$ext"
+            }
+        }
+        return map
+    }
+
+    // ── BTTV channel emotes ───────────────────────────────────────────────────
+    // GET https://api.betterttv.net/3/cached/users/twitch/{twitch_user_id}
+    // Response: { channelEmotes: [{id, code}], sharedEmotes: [{id, code}] }
+
+    private fun fetchBTTVChannel(channelId: String): Map<String, String> {
+        val body = get("https://api.betterttv.net/3/cached/users/twitch/$channelId") ?: return emptyMap()
+        val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
+            ?: return emptyMap()
+        val map  = mutableMapOf<String, String>()
+        listOf("channelEmotes", "sharedEmotes").forEach { key ->
+            root.getAsJsonArray(key)?.forEach { el ->
+                runCatching {
+                    val obj  = el.asJsonObject
+                    val id   = obj.get("id").asString
+                    val code = obj.get("code").asString
+                    map[code] = "https://cdn.betterttv.net/emote/$id/1x"
+                }
+            }
+        }
+        return map
+    }
+
+    // ── FFZ channel emotes ────────────────────────────────────────────────────
+    // GET https://api.frankerfacez.com/v1/room/{channel_name}  (login name, no ID needed)
+    // Response: { sets: { "N": { emoticons: [{ name, urls: { "1": "//cdn..." } }] } } }
+
+    private fun fetchFFZChannel(channelName: String): Map<String, String> {
+        val body = get("https://api.frankerfacez.com/v1/room/$channelName") ?: return emptyMap()
+        val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
+            ?: return emptyMap()
+        val sets = root.getAsJsonObject("sets") ?: return emptyMap()
+        val map  = mutableMapOf<String, String>()
+        sets.entrySet().forEach { (_, setEl) ->
+            runCatching {
+                val emoticons = setEl.asJsonObject.getAsJsonArray("emoticons") ?: return@runCatching
+                emoticons.forEach { emEl ->
+                    runCatching {
+                        val emObj = emEl.asJsonObject
+                        val name  = emObj.get("name").asString
+                        val url1  = emObj.getAsJsonObject("urls").get("1")?.asString
+                            ?: return@runCatching
+                        map[name] = "https:$url1"
+                    }
+                }
+            }
+        }
+        return map
+    }
+
     // ── Twitch global badges ──────────────────────────────────────────────────
-    // badges.twitch.tv no longer resolves (deprecated). Badge images are served
-    // from static-cdn.jtvnw.net/badges/v1/{uuid}/1 with stable, well-known UUIDs.
-    // Flat map key: "set/version"  e.g. "subscriber/0", "premium/1"
+    // Primary: fetch live from badges.twitch.tv (no auth required, returns current image URLs).
+    // Flat map key: "set_name/version"  e.g. "moderator/1", "subscriber/0"
+    // Fallback: hardcoded UUIDs in case the endpoint is unavailable.
 
     private fun fetchTwitchBadges(): Map<String, String> {
+        val body = get("https://badges.twitch.tv/v1/badges/global/display?language=en")
+        if (body != null) {
+            runCatching {
+                val root     = JsonParser.parseString(body).asJsonObject
+                val sets     = root.getAsJsonObject("badge_sets")
+                val map      = mutableMapOf<String, String>()
+                sets.entrySet().forEach { (setName, setEl) ->
+                    setEl.asJsonObject.getAsJsonObject("versions")
+                        .entrySet().forEach { (version, verEl) ->
+                            val url = verEl.asJsonObject.get("image_url_1x")?.asString
+                            if (url != null) map["$setName/$version"] = url
+                        }
+                }
+                if (map.isNotEmpty()) return map
+            }
+        }
+        // Fallback to hardcoded UUIDs if the live endpoint fails
         fun url(uuid: String) = "https://static-cdn.jtvnw.net/badges/v1/$uuid/1"
         return mapOf(
             "admin/1"       to url("9ef7e029-4cdf-4d4d-a0d5-e2b3fb2583fe"),
             "broadcaster/1" to url("5527c58c-fb7d-422d-b71b-f309dcb85cc1"),
             "global_mod/1"  to url("9384c9a7-f2f2-4f74-b6e5-7f78898a43fc"),
-            "moderator/1"   to url("3267646d-33f0-4b17-b3df-f923a41db1d7"),
+            "moderator/1"   to url("3267646d-33f0-4b17-b3df-f923a41db1d0"),
             "partner/1"     to url("d12a2e27-16f6-41d0-ab77-b780518f00a3"),
             "premium/1"     to url("bbbe0db0-a598-423e-86d0-f9fb98ca1933"),
             "staff/1"       to url("d97c37be-57b3-4f3d-b8db-6dcb904f84c8"),

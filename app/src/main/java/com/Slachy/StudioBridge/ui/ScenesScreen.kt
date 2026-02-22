@@ -23,8 +23,8 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import com.obscontroller.OBSFilter
-import com.obscontroller.OBSSceneItem
+import com.Slachy.StudioBridge.OBSFilter
+import com.Slachy.StudioBridge.OBSSceneItem
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.obscontroller.OBSScene
+import com.Slachy.StudioBridge.OBSScene
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

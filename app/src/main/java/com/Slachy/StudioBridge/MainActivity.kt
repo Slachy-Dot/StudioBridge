@@ -62,7 +62,13 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
     val emoteLoadReport by vm.emoteLoadReport.collectAsState()
     val chatFontSize by vm.chatFontSize.collectAsState()
     val chatLineSpacing by vm.chatLineSpacing.collectAsState()
+    val chatEmoteSize by vm.chatEmoteSize.collectAsState()
+    val chatUsernameSize by vm.chatUsernameSize.collectAsState()
     val animatedEmotes by vm.animatedEmotes.collectAsState()
+    val showDebugBar by vm.showDebugBar.collectAsState()
+    val enable7tv by vm.enable7tv.collectAsState()
+    val enableBttv by vm.enableBttv.collectAsState()
+    val enableFfz by vm.enableFfz.collectAsState()
 
     val isConnected = state is ConnectionState.Connected
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -73,11 +79,23 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
             twitchChannel = twitchChannel,
             chatFontSize = chatFontSize,
             chatLineSpacing = chatLineSpacing,
+            chatEmoteSize = chatEmoteSize,
+            chatUsernameSize = chatUsernameSize,
             animatedEmotes = animatedEmotes,
+            showDebugBar = showDebugBar,
+            enable7tv = enable7tv,
+            enableBttv = enableBttv,
+            enableFfz = enableFfz,
             onSaveChannel = { vm.saveTwitchChannel(it) },
             onFontSizeChange = { vm.setChatFontSize(it) },
             onLineSpacingChange = { vm.setChatLineSpacing(it) },
+            onEmoteSizeChange = { vm.setChatEmoteSize(it) },
+            onUsernameSizeChange = { vm.setChatUsernameSize(it) },
             onAnimatedEmotesChange = { vm.setAnimatedEmotes(it) },
+            onShowDebugBarChange = { vm.setShowDebugBar(it) },
+            onEnable7tvChange = { vm.setEnable7tv(it) },
+            onEnableBttvChange = { vm.setEnableBttv(it) },
+            onEnableFfzChange = { vm.setEnableFfz(it) },
             onDismiss = { showSettings = false }
         )
     }
@@ -203,7 +221,10 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
                         emoteLoadReport = emoteLoadReport,
                         chatFontSize = chatFontSize,
                         chatLineSpacing = chatLineSpacing,
+                        chatEmoteSize = chatEmoteSize,
+                        chatUsernameSize = chatUsernameSize,
                         animatedEmotes = animatedEmotes,
+                        showDebugBar = showDebugBar,
                         onConnect = { vm.connectTwitchChat() }
                     )
                 }
