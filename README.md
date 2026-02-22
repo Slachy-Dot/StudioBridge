@@ -4,12 +4,12 @@ StudioBridge is an Android app that acts as a full-featured remote control for O
 
 Built for streamers, content creators, and studio environments, StudioBridge lets you manage scenes, sources, audio, and filters without needing to interact with your PC during a live session.
 
-![Screenshort StudioBridge](./docs/StudioBridge-login)
-![Screenshort StudioBridge](./docs/StudioBridge-scenes)
-![Screenshort StudioBridge](./docs/StudioBridge-mode)
-![Screenshort StudioBridge](./docs/StudioBridge-sources)
-![Screenshort StudioBridge](./docs/StudioBridge-audiolvl)
-![Screenshort StudioBridge](./docs/StudioBridge-chat)
+![Screenshort StudioBridge](./docs/StudioBridge-login.png)
+![Screenshort StudioBridge](./docs/StudioBridge-scenes.png)
+![Screenshort StudioBridge](./docs/StudioBridge-mode.png)
+![Screenshort StudioBridge](./docs/StudioBridge-sources.png)
+![Screenshort StudioBridge](./docs/StudioBridge-audiolvl.png)
+![Screenshort StudioBridge](./docs/StudioBridge-chat.png)
 
 ## Features
 
