@@ -537,7 +537,7 @@ private fun ScreenshotImage(base64: String?, modifier: Modifier = Modifier) {
     val bitmap: ImageBitmap? = remember(base64) {
         base64 ?: return@remember null
         try {
-            val clean = base64.substringAfter(",")
+            val clean = if (',' in base64) base64.substringAfter(",") else base64
             val bytes = android.util.Base64.decode(clean, android.util.Base64.DEFAULT)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
         } catch (_: Exception) { null }

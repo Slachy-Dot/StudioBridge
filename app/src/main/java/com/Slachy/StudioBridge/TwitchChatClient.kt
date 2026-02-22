@@ -119,7 +119,7 @@ class TwitchChatClient {
 
             // rest: :nick!user@host PRIVMSG #channel :message text
             val prefix   = rest.removePrefix(":").substringBefore("!")
-            val username = displayName ?: prefix
+            val username = displayName ?: prefix.ifEmpty { return }
 
             // Message starts after the second ':'
             val msgIdx = rest.indexOf(':', 1)

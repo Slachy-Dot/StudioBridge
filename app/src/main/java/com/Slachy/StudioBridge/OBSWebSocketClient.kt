@@ -126,8 +126,8 @@ class OBSWebSocketClient {
 
     private fun handleMessage(text: String) {
         val msg = JsonParser.parseString(text).asJsonObject
-        val op = msg.get("op").asInt
-        val d = msg.get("d").asJsonObject
+        val op = msg.get("op")?.takeIf { !it.isJsonNull }?.asInt ?: return
+        val d  = msg.get("d")?.takeIf { !it.isJsonNull }?.asJsonObject ?: return
 
         when (op) {
             0 -> onHello(d)
