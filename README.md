@@ -38,3 +38,13 @@ StudioBridge can connect to OBS Studio in two ways:
 - Android device
 - OBS Studio with WebSocket support enabled
 - Network access (local or remote via port forwarding)
+
+
+
+## Todo
+
+- The read chat is still work in progress its doesn't show all emote types and there are bugs
+- Make the settings menu more clear as right now its just clicking on the logo 
+- add text to speech for chat
+- look if we can move around sources in the video preview like in real obs
+- clean up the cookie crumbles ..
