@@ -1,6 +1,7 @@
 package com.Slachy.StudioBridge.ui
 
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -37,6 +38,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.Slachy.StudioBridge.OBSScene
+
+private const val TAG = "ScenesScreen"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -540,7 +543,10 @@ private fun ScreenshotImage(base64: String?, modifier: Modifier = Modifier) {
             val clean = if (',' in base64) base64.substringAfter(",") else base64
             val bytes = android.util.Base64.decode(clean, android.util.Base64.DEFAULT)
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to decode screenshot bitmap", e)
+            null
+        }
     }
 
     if (bitmap != null) {

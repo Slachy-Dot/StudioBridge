@@ -135,7 +135,7 @@ class TwitchChatClient {
                 color      = color,
                 emotesTag  = emotesTag,
                 badgeTags  = badges
-            )).takeLast(300)
+            )).takeLast(MAX_CHAT_MESSAGES)
 
         } catch (_: Exception) { }
     }

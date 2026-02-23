@@ -11,6 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.Slachy.StudioBridge.DEFAULT_EMOTE_SIZE
+import com.Slachy.StudioBridge.DEFAULT_FONT_SIZE
+import com.Slachy.StudioBridge.DEFAULT_LINE_SPACING
+import com.Slachy.StudioBridge.DEFAULT_USERNAME_SIZE
 import kotlin.math.roundToInt
 
 @Composable
@@ -167,10 +171,10 @@ fun SettingsDialog(
                 // ── Reset ──────────────────────────────────────────────────
                 TextButton(
                     onClick = {
-                        onFontSizeChange(13f)
-                        onUsernameSizeChange(13f)
-                        onLineSpacingChange(4f)
-                        onEmoteSizeChange(22f)
+                        onFontSizeChange(DEFAULT_FONT_SIZE)
+                        onUsernameSizeChange(DEFAULT_USERNAME_SIZE)
+                        onLineSpacingChange(DEFAULT_LINE_SPACING)
+                        onEmoteSizeChange(DEFAULT_EMOTE_SIZE)
                     },
                     modifier = Modifier.align(Alignment.End)
                 ) {

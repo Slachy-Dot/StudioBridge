@@ -20,10 +20,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.Slachy.StudioBridge.ConnectionState
 import kotlinx.coroutines.delay
+import com.Slachy.StudioBridge.DEFAULT_OBS_PORT
 import com.Slachy.StudioBridge.OBSProfile
 
 // Sentinel value representing a blank "new profile" slot
-private val NEW_PROFILE = OBSProfile(id = "__new__", name = "", host = "", port = 4455, password = "")
+private val NEW_PROFILE = OBSProfile(id = "__new__", name = "", host = "", port = DEFAULT_OBS_PORT, password = "")
 
 @Composable
 fun ConnectScreen(
@@ -230,7 +231,7 @@ fun ConnectScreen(
 
         // ── Action buttons ────────────────────────────────────────────────────
 
-        val portInt = port.toIntOrNull() ?: 4455
+        val portInt = port.toIntOrNull() ?: DEFAULT_OBS_PORT
         val canAct = !isConnecting && host.isNotBlank()
 
         // Save profile button (only shown when name is filled)

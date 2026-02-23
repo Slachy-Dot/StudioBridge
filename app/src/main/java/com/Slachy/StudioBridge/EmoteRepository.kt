@@ -1,5 +1,6 @@
 package com.Slachy.StudioBridge
 
+import com.google.gson.JsonArray
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -109,21 +110,7 @@ class EmoteRepository {
         val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
             ?: return emptyMap()
         val arr  = root.getAsJsonArray("emotes") ?: return emptyMap()
-        val map  = mutableMapOf<String, String>()
-        arr.forEach { el ->
-            runCatching {
-                val obj      = el.asJsonObject
-                val name     = obj.get("name").asString
-                val data     = obj.getAsJsonObject("data")
-                val hostObj  = data.getAsJsonObject("host")
-                val hostUrl  = hostObj.get("url").asString
-                val files    = hostObj.getAsJsonArray("files")
-                val hasGif   = files?.any { it.asJsonObject.get("name")?.asString == "1x.gif" } == true
-                val ext      = if (hasGif) "1x.gif" else "1x.webp"
-                map[name] = "https:$hostUrl/$ext"
-            }
-        }
-        return map
+        return parse7tvEmoteArray(arr)
     }
 
     // ── BetterTTV global emotes ───────────────────────────────────────────────
@@ -184,7 +171,13 @@ class EmoteRepository {
         val root = JsonParser.parseString(body).takeIf { it.isJsonObject }?.asJsonObject
             ?: return emptyMap()
         val arr  = root.getAsJsonObject("emote_set")?.getAsJsonArray("emotes") ?: return emptyMap()
-        val map  = mutableMapOf<String, String>()
+        return parse7tvEmoteArray(arr)
+    }
+
+    // Shared parser for both global and channel 7TV emote arrays.
+    // Prefers 1x.gif for animated emotes; falls back to 1x.webp for static ones.
+    private fun parse7tvEmoteArray(arr: JsonArray): Map<String, String> {
+        val map = mutableMapOf<String, String>()
         arr.forEach { el ->
             runCatching {
                 val obj     = el.asJsonObject

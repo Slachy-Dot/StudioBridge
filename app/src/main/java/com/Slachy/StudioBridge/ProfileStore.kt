@@ -36,19 +36,19 @@ class ProfileStore(context: Context) {
     fun getTwitchChannel(): String = prefs.getString("twitch_channel", "") ?: ""
     fun setTwitchChannel(channel: String) = prefs.edit().putString("twitch_channel", channel).apply()
 
-    fun getChatFontSize(): Float = prefs.getFloat("chat_font_size", 13f)
+    fun getChatFontSize(): Float = prefs.getFloat("chat_font_size", DEFAULT_FONT_SIZE)
     fun setChatFontSize(sp: Float) = prefs.edit().putFloat("chat_font_size", sp).apply()
 
-    fun getChatLineSpacing(): Float = prefs.getFloat("chat_line_spacing", 4f)
+    fun getChatLineSpacing(): Float = prefs.getFloat("chat_line_spacing", DEFAULT_LINE_SPACING)
     fun setChatLineSpacing(dp: Float) = prefs.edit().putFloat("chat_line_spacing", dp).apply()
 
     fun getAnimatedEmotes(): Boolean = prefs.getBoolean("animated_emotes", true)
     fun setAnimatedEmotes(enabled: Boolean) = prefs.edit().putBoolean("animated_emotes", enabled).apply()
 
-    fun getChatEmoteSize(): Float = prefs.getFloat("chat_emote_size", 22f)
+    fun getChatEmoteSize(): Float = prefs.getFloat("chat_emote_size", DEFAULT_EMOTE_SIZE)
     fun setChatEmoteSize(sp: Float) = prefs.edit().putFloat("chat_emote_size", sp).apply()
 
-    fun getChatUsernameSize(): Float = prefs.getFloat("chat_username_size", 13f)
+    fun getChatUsernameSize(): Float = prefs.getFloat("chat_username_size", DEFAULT_USERNAME_SIZE)
     fun setChatUsernameSize(sp: Float) = prefs.edit().putFloat("chat_username_size", sp).apply()
 
     fun getShowDebugBar(): Boolean = prefs.getBoolean("show_debug_bar", false)
@@ -73,7 +73,7 @@ class ProfileStore(context: Context) {
                 OBSProfile(
                     name = "Default",
                     host = host,
-                    port = old.getInt("port", 4455),
+                    port = old.getInt("port", DEFAULT_OBS_PORT),
                     password = old.getString("password", "") ?: ""
                 )
             )

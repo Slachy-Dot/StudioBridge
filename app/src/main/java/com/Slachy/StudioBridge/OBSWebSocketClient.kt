@@ -150,8 +150,7 @@ class OBSWebSocketClient {
             addProperty("op", 1)
             add("d", JsonObject().apply {
                 addProperty("rpcVersion", 1)
-                // General(1) + Scenes(4) + Inputs(8) + Outputs(64) + SceneItems(128) + Filters(2) + Ui(1024) = 1231
-                addProperty("eventSubscriptions", 1231)
+                addProperty("eventSubscriptions", OBS_EVENT_SUBSCRIPTIONS)
                 if (authToken != null) addProperty("authentication", authToken)
             })
         })
@@ -195,14 +194,10 @@ class OBSWebSocketClient {
                 val eventScene = data.get("sceneName")?.asString ?: return
                 val itemId = data.get("sceneItemId")?.asInt ?: return
                 val enabled = data.get("sceneItemEnabled")?.asBoolean ?: return
-                _sceneItems.value = _sceneItems.value.map {
-                    if (it.sceneItemId == itemId) it.copy(sceneItemEnabled = enabled) else it
-                }
+                _sceneItems.value = _sceneItems.value.withItemEnabled(itemId, enabled)
                 val grp = _groupItems.value
                 if (grp.containsKey(eventScene)) {
-                    _groupItems.value = grp + (eventScene to grp[eventScene]!!.map {
-                        if (it.sceneItemId == itemId) it.copy(sceneItemEnabled = enabled) else it
-                    })
+                    _groupItems.value = grp + (eventScene to grp[eventScene]!!.withItemEnabled(itemId, enabled))
                 }
             }
 
@@ -325,9 +320,9 @@ class OBSWebSocketClient {
         request("GetSourceScreenshot", JsonObject().apply {
             addProperty("sourceName", sourceName)
             addProperty("imageFormat", "jpeg")
-            addProperty("imageWidth", 320)
-            addProperty("imageHeight", 180)
-            addProperty("imageCompressionQuality", 60)
+            addProperty("imageWidth", SCREENSHOT_WIDTH)
+            addProperty("imageHeight", SCREENSHOT_HEIGHT)
+            addProperty("imageCompressionQuality", SCREENSHOT_QUALITY)
         }) { data ->
             val b64 = data.get("imageData")?.asString
             if (isProgram) _programScreenshot.value = b64
@@ -513,9 +508,7 @@ class OBSWebSocketClient {
     fun setGroupItemEnabled(groupName: String, sceneItemId: Int, enabled: Boolean) {
         _groupItems.value = _groupItems.value.run {
             val list = this[groupName] ?: return@run this
-            this + (groupName to list.map {
-                if (it.sceneItemId == sceneItemId) it.copy(sceneItemEnabled = enabled) else it
-            })
+            this + (groupName to list.withItemEnabled(sceneItemId, enabled))
         }
         request("SetSceneItemEnabled", JsonObject().apply {
             addProperty("sceneName", groupName)
@@ -575,6 +568,9 @@ class OBSWebSocketClient {
     private fun updateInput(name: String, transform: (OBSInput) -> OBSInput) {
         _inputs.value = _inputs.value.map { if (it.name == name) transform(it) else it }
     }
+
+    private fun List<OBSSceneItem>.withItemEnabled(id: Int, enabled: Boolean) =
+        map { if (it.sceneItemId == id) it.copy(sceneItemEnabled = enabled) else it }
 
     private fun computeAuth(password: String, challenge: String, salt: String): String {
         val sha256 = MessageDigest.getInstance("SHA-256")

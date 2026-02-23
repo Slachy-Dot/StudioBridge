@@ -124,7 +124,7 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
         reconnectJob?.cancel()
         reconnectJob = viewModelScope.launch {
             _reconnecting.value = true
-            delay(5000)
+            delay(RECONNECT_DELAY_MS)
             _reconnecting.value = false
             val profile = lastProfile ?: return@launch
             if (!manualDisconnect) {
@@ -165,7 +165,7 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
         if (screenshotJob?.isActive == true) return
         screenshotJob = viewModelScope.launch {
             while (true) {
-                delay(1500)
+                delay(SCREENSHOT_POLL_MS)
                 if (!screenshotsPaused) {
                     val program = client.currentScene.value
                     if (program.isNotEmpty()) client.fetchScreenshot(program, isProgram = true)
