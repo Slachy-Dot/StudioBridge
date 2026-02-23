@@ -10,9 +10,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -69,6 +71,12 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
     val enable7tv by vm.enable7tv.collectAsState()
     val enableBttv by vm.enableBttv.collectAsState()
     val enableFfz by vm.enableFfz.collectAsState()
+    val recordingTimeSec by vm.recordingTimeSec.collectAsState()
+    val sceneCollections by vm.sceneCollections.collectAsState()
+    val currentSceneCollection by vm.currentSceneCollection.collectAsState()
+    val volumeMeters by vm.volumeMeters.collectAsState()
+    val showMiniMixer by vm.showMiniMixer.collectAsState()
+    val showCollectionChip by vm.showCollectionChip.collectAsState()
 
     val isConnected = state is ConnectionState.Connected
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -96,6 +104,10 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
             onEnable7tvChange = { vm.setEnable7tv(it) },
             onEnableBttvChange = { vm.setEnableBttv(it) },
             onEnableFfzChange = { vm.setEnableFfz(it) },
+            showMiniMixer = showMiniMixer,
+            showCollectionChip = showCollectionChip,
+            onShowMiniMixerChange = { vm.setShowMiniMixer(it) },
+            onShowCollectionChipChange = { vm.setShowCollectionChip(it) },
             onDismiss = { showSettings = false }
         )
     }
@@ -104,10 +116,22 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
         topBar = {
             TopAppBar(
                 title = {
-                    Column(modifier = Modifier.clickable { showSettings = true }) {
+                    if (isConnected) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { showSettings = true }
+                        ) {
+                            Text("StudioBridge", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.width(6.dp))
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                            )
+                        }
+                    } else {
                         Text("StudioBridge", style = MaterialTheme.typography.titleMedium)
-                        Text("by Slachy", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
                     }
                 },
                 actions = {
@@ -172,6 +196,7 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
                         studioModeEnabled = studioModeEnabled,
                         streamActive = streamActive,
                         recordActive = recordActive,
+                        recordingTimeSec = recordingTimeSec,
                         programScreenshot = programScreenshot,
                         previewScreenshot = previewScreenshot,
                         onSceneClick = { vm.onSceneClick(it) },
@@ -199,11 +224,22 @@ fun OBSControllerApp(vm: OBSViewModel = viewModel()) {
                         onSetFilterSettings = { name, settings -> vm.setFilterSettings(name, settings) },
                         inputSettings = inputSettings,
                         onLoadInputSettings = { vm.loadInputSettings(it) },
-                        onSetInputSettings = { name, settings -> vm.setInputSettings(name, settings) }
+                        onSetInputSettings = { name, settings -> vm.setInputSettings(name, settings) },
+                        onReorderSceneItem = { id, idx -> vm.reorderSceneItem(id, idx) },
+                        sceneCollections = sceneCollections,
+                        currentSceneCollection = currentSceneCollection,
+                        onSetSceneCollection = { vm.setSceneCollection(it) },
+                        inputs = inputs,
+                        onToggleMute = { vm.toggleMute(it) },
+                        onMiniVolumeChange = { name, db -> vm.setVolume(name, db) },
+                        volumeMeters = volumeMeters,
+                        showMiniMixer = showMiniMixer,
+                        showCollectionChip = showCollectionChip
                     )
                     1 -> AudioScreen(
                         inputs = inputs,
                         filters = filters,
+                        volumeMeters = volumeMeters,
                         onToggleMute = { vm.toggleMute(it) },
                         onVolumeChange = { name, db -> vm.setVolume(name, db) },
                         onLoadFilters = { vm.loadFilters(it) },

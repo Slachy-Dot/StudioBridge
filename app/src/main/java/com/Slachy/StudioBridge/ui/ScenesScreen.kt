@@ -2,14 +2,16 @@ package com.Slachy.StudioBridge.ui
 
 import android.graphics.BitmapFactory
 import android.util.Log
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -20,12 +22,13 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import com.Slachy.StudioBridge.OBSFilter
-import com.Slachy.StudioBridge.OBSSceneItem
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,9 +40,18 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.Slachy.StudioBridge.OBSFilter
+import com.Slachy.StudioBridge.OBSInput
 import com.Slachy.StudioBridge.OBSScene
+import com.Slachy.StudioBridge.OBSSceneItem
+import kotlin.math.log10
 
 private const val TAG = "ScenesScreen"
+
+private fun Float.toDbMeterProgress(): Float {
+    if (this <= 0f) return 0f
+    return ((20f * log10(this) + 60f) / 60f).coerceIn(0f, 1f)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +62,7 @@ fun ScenesScreen(
     studioModeEnabled: Boolean,
     streamActive: Boolean,
     recordActive: Boolean,
+    recordingTimeSec: Long = 0,
     programScreenshot: String?,
     previewScreenshot: String?,
     onSceneClick: (String) -> Unit,
@@ -77,8 +90,20 @@ fun ScenesScreen(
     onSetFilterSettings: (filterName: String, partialSettings: Map<String, Any>) -> Unit = { _, _ -> },
     inputSettings: Map<String, Any>? = null,
     onLoadInputSettings: (sourceName: String) -> Unit = {},
-    onSetInputSettings: (sourceName: String, partialSettings: Map<String, Any>) -> Unit = { _, _ -> }
+    onSetInputSettings: (sourceName: String, partialSettings: Map<String, Any>) -> Unit = { _, _ -> },
+    onReorderSceneItem: (sceneItemId: Int, newIndex: Int) -> Unit = { _, _ -> },
+    sceneCollections: List<String> = emptyList(),
+    currentSceneCollection: String = "",
+    onSetSceneCollection: (String) -> Unit = {},
+    inputs: List<OBSInput> = emptyList(),
+    onToggleMute: (String) -> Unit = {},
+    onMiniVolumeChange: (String, Float) -> Unit = { _, _ -> },
+    volumeMeters: Map<String, List<Float>> = emptyMap(),
+    showMiniMixer: Boolean = true,
+    showCollectionChip: Boolean = true
 ) {
+    val view = LocalView.current
+
     var showAddScene by remember { mutableStateOf(false) }
     var showAddSource by remember { mutableStateOf(false) }
     var sourcesSheetScene by remember { mutableStateOf<String?>(null) }
@@ -86,6 +111,8 @@ fun ScenesScreen(
     var settingsForSource by remember { mutableStateOf<Pair<String, String>?>(null) }
     var confirmStream by remember { mutableStateOf(false) }
     var confirmRecord by remember { mutableStateOf(false) }
+    var miniMixerExpanded by remember { mutableStateOf(false) }
+    var showCollectionPicker by remember { mutableStateOf(false) }
 
     if (confirmStream) {
         AlertDialog(
@@ -125,6 +152,42 @@ fun ScenesScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmRecord = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showCollectionPicker && sceneCollections.size > 1) {
+        AlertDialog(
+            onDismissRequest = { showCollectionPicker = false },
+            title = { Text("Scene Collection") },
+            text = {
+                Column {
+                    sceneCollections.forEach { collection ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSetSceneCollection(collection)
+                                    showCollectionPicker = false
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = collection == currentSceneCollection,
+                                onClick = {
+                                    onSetSceneCollection(collection)
+                                    showCollectionPicker = false
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(collection, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCollectionPicker = false }) { Text("Close") }
             }
         )
     }
@@ -170,6 +233,7 @@ fun ScenesScreen(
             onLoadGroupItems = onLoadGroupItems,
             onOpenFilters = { sourceName -> filterForSource = sourceName },
             onOpenSettings = { sourceName, sourceKind -> settingsForSource = sourceName to sourceKind },
+            onReorderSceneItem = onReorderSceneItem,
             onDismiss = { sourcesSheetScene = null }
         )
     }
@@ -255,7 +319,16 @@ fun ScenesScreen(
                             ) {
                                 Icon(Icons.Default.Stop, contentDescription = "Stop recording", modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text("End Rec")
+                                Column(horizontalAlignment = Alignment.Start) {
+                                    Text("End Rec")
+                                    if (recordingTimeSec > 0) {
+                                        Text(
+                                            text = "● %02d:%02d".format(recordingTimeSec / 60, recordingTimeSec % 60),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onError.copy(alpha = 0.85f)
+                                        )
+                                    }
+                                }
                             }
                         } else {
                             OutlinedButton(onClick = { confirmRecord = true }) {
@@ -279,6 +352,50 @@ fun ScenesScreen(
                 }
             }
 
+            // ── Mini mixer (collapsible) ──────────────────────────────────────
+            val audioInputs = remember(inputs) { inputs.filter { it.isAudio } }
+            if (showMiniMixer && audioInputs.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { miniMixerExpanded = !miniMixerExpanded }
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Audio (${audioInputs.size})",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        imageVector = if (miniMixerExpanded) Icons.Default.KeyboardArrowUp
+                                      else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (miniMixerExpanded) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                AnimatedVisibility(visible = miniMixerExpanded) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        audioInputs.forEach { input ->
+                            MiniMixerRow(
+                                input = input,
+                                peaks = volumeMeters[input.name] ?: emptyList(),
+                                onToggleMute = { onToggleMute(input.name) },
+                                onVolumeChange = { db -> onMiniVolumeChange(input.name, db) }
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider()
+            }
+
             // ── Studio mode split view ────────────────────────────────────────
             if (studioModeEnabled) {
                 Column(modifier = Modifier.padding(12.dp)) {
@@ -286,7 +403,6 @@ fun ScenesScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Preview box
                         SceneBox(
                             label = "PREVIEW",
                             sceneName = previewScene,
@@ -294,8 +410,6 @@ fun ScenesScreen(
                             labelColor = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.weight(1f)
                         )
-
-                        // Program box
                         SceneBox(
                             label = "On Air",
                             sceneName = currentScene,
@@ -307,16 +421,8 @@ fun ScenesScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(onClick = onCut, modifier = Modifier.weight(1f)) {
-                            Text("Cut")
-                        }
-                        Button(onClick = onTransition, modifier = Modifier.weight(1f)) {
-                            Text("Transition")
-                        }
+                    Button(onClick = onTransition, modifier = Modifier.fillMaxWidth()) {
+                        Text("Transition")
                     }
                 }
 
@@ -331,6 +437,25 @@ fun ScenesScreen(
             } else {
                 val activeScene = if (studioModeEnabled) previewScene else currentScene
 
+                // Scene collection chip (shown when multiple collections exist)
+                if (showCollectionChip && sceneCollections.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        AssistChip(
+                            onClick = { showCollectionPicker = true },
+                            label = {
+                                Text(
+                                    currentSceneCollection.ifEmpty { "Collection" },
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        )
+                    }
+                }
+
                 // Program thumbnail when studio mode OFF
                 if (!studioModeEnabled) {
                     var previewVisible by remember { mutableStateOf(true) }
@@ -339,51 +464,11 @@ fun ScenesScreen(
                         onPreviewVisibilityChange(previewVisible && !previewPaused)
                     }
 
-                    // Toggle bar
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { previewVisible = !previewVisible }
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "LIVE: $currentScene",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (streamActive) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = { previewPaused = !previewPaused },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (previewPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                contentDescription = if (previewPaused) "Resume preview" else "Pause preview",
-                                tint = if (previewPaused) MaterialTheme.colorScheme.primary
-                                       else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Icon(
-                            imageVector = if (previewVisible) Icons.Default.KeyboardArrowUp
-                                          else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (previewVisible) "Hide preview" else "Show preview",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = previewVisible,
-                        enter = slideInVertically(initialOffsetY = { -it }),
-                        exit = slideOutVertically(targetOffsetY = { -it })
-                    ) {
-                        Column(
+                    if (previewVisible) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .padding(horizontal = 16.dp)
                         ) {
                             ScreenshotImage(
                                 base64 = programScreenshot,
@@ -392,33 +477,163 @@ fun ScenesScreen(
                                     .height(180.dp)
                                     .clip(RoundedCornerShape(8.dp))
                             )
-                            Spacer(Modifier.height(12.dp))
+                            // Overlay bar at the bottom of the preview image
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.BottomCenter)
+                                    .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                                    .background(Color.Black.copy(alpha = 0.45f))
+                                    .clickable { previewVisible = false }
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "LIVE: $currentScene",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (streamActive) MaterialTheme.colorScheme.error
+                                            else Color.White,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { previewPaused = !previewPaused },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (previewPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                        contentDescription = if (previewPaused) "Resume preview" else "Pause preview",
+                                        tint = if (previewPaused) MaterialTheme.colorScheme.primary else Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowUp,
+                                    contentDescription = "Hide preview",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    } else {
+                        // Collapsed: slim row to re-expand
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { previewVisible = true }
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "LIVE: $currentScene",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (streamActive) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Show preview",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
 
+                // ── Scene grid ───────────────────────────────────────────────
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(scenes) { scene ->
-                        val isActive = scene.name == activeScene
-                        val isProgram = scene.name == currentScene
-                        SceneCard(
-                            scene = scene,
-                            isActive = isActive,
-                            isProgram = isProgram,
-                            studioModeEnabled = studioModeEnabled,
-                            onClick = { onSceneClick(scene.name) },
-                            onShowSources = {
-                                sourcesSheetScene = scene.name
-                                onLoadSceneItems(scene.name)
-                            }
-                        )
+                        columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(scenes) { scene ->
+                            val isActive = scene.name == activeScene
+                            val isProgram = scene.name == currentScene
+                            SceneCard(
+                                scene = scene,
+                                isActive = isActive,
+                                isProgram = isProgram,
+                                studioModeEnabled = studioModeEnabled,
+                                onClick = {
+                                    onSceneClick(scene.name)
+                                    view.performHapticFeedback(
+                                        HapticFeedbackConstants.CLOCK_TICK,
+                                        HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING
+                                    )
+                                },
+                                onShowSources = {
+                                    sourcesSheetScene = scene.name
+                                    onLoadSceneItems(scene.name)
+                                }
+                            )
+                        }
                     }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniMixerRow(
+    input: OBSInput,
+    peaks: List<Float>,
+    onToggleMute: () -> Unit,
+    onVolumeChange: (Float) -> Unit
+) {
+    var sliderValue by remember(input.name) {
+        mutableFloatStateOf(input.volumeDb.coerceIn(-60f, 6f))
+    }
+    LaunchedEffect(input.volumeDb) {
+        sliderValue = input.volumeDb.coerceIn(-60f, 6f)
+    }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onToggleMute, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    imageVector = if (input.muted) Icons.Default.MicOff else Icons.Default.Mic,
+                    contentDescription = if (input.muted) "Unmute" else "Mute",
+                    tint = if (input.muted) MaterialTheme.colorScheme.error
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Text(
+                text = input.name,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                modifier = Modifier.width(72.dp)
+            )
+            Slider(
+                value = sliderValue,
+                onValueChange = { sliderValue = it },
+                onValueChangeFinished = { onVolumeChange(sliderValue) },
+                valueRange = -60f..6f,
+                enabled = !input.muted,
+                modifier = Modifier.weight(1f).height(36.dp)
+            )
+        }
+        if (peaks.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 108.dp, end = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                peaks.forEach { peak ->
+                    LinearProgressIndicator(
+                        progress = { peak.toDbMeterProgress() },
+                        modifier = Modifier.weight(1f).height(3.dp),
+                        color = when {
+                            peak > 0.5f -> MaterialTheme.colorScheme.error   // > -6 dBFS
+                            peak > 0.1f -> Color(0xFFFFB300)                 // > -20 dBFS
+                            else        -> MaterialTheme.colorScheme.primary
+                        },
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 }
             }
         }

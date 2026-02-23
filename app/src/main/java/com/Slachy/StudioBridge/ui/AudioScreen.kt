@@ -11,10 +11,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.Slachy.StudioBridge.OBSFilter
 import com.Slachy.StudioBridge.OBSInput
+import kotlin.math.log10
 import kotlin.math.roundToInt
+
+private fun Float.toDbMeterProgress(): Float {
+    if (this <= 0f) return 0f
+    return ((20f * log10(this) + 60f) / 60f).coerceIn(0f, 1f)
+}
 
 // Volume range shown in the UI: -60 dB (silence) to +6 dB (slight gain)
 private const val VOL_MIN = -60f
@@ -24,6 +31,7 @@ private const val VOL_MAX = 6f
 fun AudioScreen(
     inputs: List<OBSInput>,
     filters: List<OBSFilter>,
+    volumeMeters: Map<String, List<Float>> = emptyMap(),
     onToggleMute: (String) -> Unit,
     onVolumeChange: (String, Float) -> Unit,
     onLoadFilters: (sourceName: String) -> Unit,
@@ -87,6 +95,7 @@ fun AudioScreen(
         items(audioInputs, key = { it.name }) { input ->
             AudioInputCard(
                 input = input,
+                peaks = volumeMeters[input.name] ?: emptyList(),
                 onToggleMute = { onToggleMute(input.name) },
                 onVolumeChange = { db -> onVolumeChange(input.name, db) },
                 onOpenFilters = { filterFor = input.name }
@@ -98,6 +107,7 @@ fun AudioScreen(
 @Composable
 private fun AudioInputCard(
     input: OBSInput,
+    peaks: List<Float> = emptyList(),
     onToggleMute: () -> Unit,
     onVolumeChange: (Float) -> Unit,
     onOpenFilters: () -> Unit
@@ -178,6 +188,28 @@ private fun AudioInputCard(
                     enabled = !input.muted,
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            // Peak meters (one bar per channel)
+            if (peaks.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 52.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    peaks.forEach { peak ->
+                        LinearProgressIndicator(
+                            progress = { peak.toDbMeterProgress() },
+                            modifier = Modifier.weight(1f).height(4.dp),
+                            color = when {
+                                peak > 0.5f -> MaterialTheme.colorScheme.error   // > -6 dBFS
+                                peak > 0.1f -> Color(0xFFFFB300)                 // > -20 dBFS
+                                else        -> MaterialTheme.colorScheme.primary
+                            },
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
+                }
             }
         }
     }

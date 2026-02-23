@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
@@ -21,8 +23,8 @@ import com.Slachy.StudioBridge.OBSSceneItem
 
 // Flat list entries for the LazyColumn
 private sealed class UiEntry {
-    data class TopLevel(val item: OBSSceneItem) : UiEntry()
-    data class GroupHeader(val item: OBSSceneItem, val expanded: Boolean) : UiEntry()
+    data class TopLevel(val item: OBSSceneItem, val index: Int) : UiEntry()
+    data class GroupHeader(val item: OBSSceneItem, val index: Int, val expanded: Boolean) : UiEntry()
     data class GroupChild(val item: OBSSceneItem, val groupName: String) : UiEntry()
     data class GroupLoading(val groupName: String) : UiEntry()
 }
@@ -40,9 +42,9 @@ fun SceneItemsSheet(
     onLoadGroupItems: (groupName: String) -> Unit = {},
     onOpenFilters: (sourceName: String) -> Unit = {},
     onOpenSettings: (sourceName: String, sourceKind: String) -> Unit = { _, _ -> },
+    onReorderSceneItem: (sceneItemId: Int, newIndex: Int) -> Unit = { _, _ -> },
     onDismiss: () -> Unit
 ) {
-    // Pair: item + optional groupName (null = top-level)
     var deleteTarget by remember { mutableStateOf<Pair<OBSSceneItem, String?>?>(null) }
     var expandedGroups by remember { mutableStateOf(emptySet<String>()) }
 
@@ -91,24 +93,26 @@ fun SceneItemsSheet(
                     CircularProgressIndicator()
                 }
             } else {
+                val topLevelCount = sceneItems.size
+
                 val entries = remember(sceneItems, groupItems, expandedGroups) {
                     buildList {
-                        for (item in sceneItems) {
+                        for ((index, item) in sceneItems.withIndex()) {
                             if (item.inputKind == "group") {
                                 val isExpanded = item.sourceName in expandedGroups
-                                add(UiEntry.GroupHeader(item, isExpanded))
+                                add(UiEntry.GroupHeader(item, index, isExpanded))
                                 if (isExpanded) {
                                     val children = groupItems[item.sourceName]
                                     when {
                                         children == null -> add(UiEntry.GroupLoading(item.sourceName))
-                                        children.isEmpty() -> { /* empty group, show nothing */ }
+                                        children.isEmpty() -> { /* empty group */ }
                                         else -> children.forEach { child ->
                                             add(UiEntry.GroupChild(child, item.sourceName))
                                         }
                                     }
                                 }
                             } else {
-                                add(UiEntry.TopLevel(item))
+                                add(UiEntry.TopLevel(item, index))
                             }
                         }
                     }
@@ -132,6 +136,10 @@ fun SceneItemsSheet(
                         when (entry) {
                             is UiEntry.TopLevel -> SceneItemRow(
                                 item = entry.item,
+                                index = entry.index,
+                                totalCount = topLevelCount,
+                                onMoveUp = { onReorderSceneItem(entry.item.sceneItemId, entry.index - 1) },
+                                onMoveDown = { onReorderSceneItem(entry.item.sceneItemId, entry.index + 1) },
                                 onToggleVisibility = { onToggleVisibility(entry.item.sceneItemId, entry.item.sceneItemEnabled) },
                                 onOpenFilters = { onOpenFilters(entry.item.sourceName) },
                                 onOpenSettings = { onOpenSettings(entry.item.sourceName, entry.item.inputKind) },
@@ -139,6 +147,8 @@ fun SceneItemsSheet(
                             )
                             is UiEntry.GroupHeader -> GroupHeaderRow(
                                 item = entry.item,
+                                index = entry.index,
+                                totalCount = topLevelCount,
                                 expanded = entry.expanded,
                                 onToggleExpand = {
                                     val name = entry.item.sourceName
@@ -146,6 +156,8 @@ fun SceneItemsSheet(
                                     expandedGroups = if (nowExpanded) expandedGroups + name else expandedGroups - name
                                     if (nowExpanded) onLoadGroupItems(name)
                                 },
+                                onMoveUp = { onReorderSceneItem(entry.item.sceneItemId, entry.index - 1) },
+                                onMoveDown = { onReorderSceneItem(entry.item.sceneItemId, entry.index + 1) },
                                 onToggleVisibility = { onToggleVisibility(entry.item.sceneItemId, entry.item.sceneItemEnabled) },
                                 onOpenFilters = { onOpenFilters(entry.item.sourceName) },
                                 onDelete = { deleteTarget = entry.item to null }
@@ -181,8 +193,12 @@ fun SceneItemsSheet(
 @Composable
 private fun GroupHeaderRow(
     item: OBSSceneItem,
+    index: Int = -1,
+    totalCount: Int = 0,
     expanded: Boolean,
     onToggleExpand: () -> Unit,
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {},
     onToggleVisibility: () -> Unit,
     onOpenFilters: () -> Unit,
     onDelete: () -> Unit
@@ -195,10 +211,32 @@ private fun GroupHeaderRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            // Up / Down reorder buttons
+            if (index >= 0) {
+                Column {
+                    IconButton(
+                        onClick = onMoveUp,
+                        enabled = index > 0,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up",
+                            modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(
+                        onClick = onMoveDown,
+                        enabled = index < totalCount - 1,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down",
+                            modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
                 Text(
                     text = item.sourceName,
                     style = MaterialTheme.typography.bodyMedium,
@@ -258,7 +296,11 @@ private fun GroupHeaderRow(
 @Composable
 private fun SceneItemRow(
     item: OBSSceneItem,
+    index: Int = -1,
+    totalCount: Int = 0,
     indent: Boolean = false,
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {},
     onToggleVisibility: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -278,10 +320,32 @@ private fun SceneItemRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                // Up / Down reorder buttons (only for top-level, not indented group children)
+                if (!indent && index >= 0) {
+                    Column {
+                        IconButton(
+                            onClick = onMoveUp,
+                            enabled = index > 0,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up",
+                                modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(
+                            onClick = onMoveDown,
+                            enabled = index < totalCount - 1,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down",
+                                modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 4.dp)) {
                     Text(
                         text = item.sourceName,
                         style = MaterialTheme.typography.bodyMedium,

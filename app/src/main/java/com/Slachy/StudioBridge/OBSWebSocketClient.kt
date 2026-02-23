@@ -82,6 +82,16 @@ class OBSWebSocketClient {
     private val _groupItems = MutableStateFlow<Map<String, List<OBSSceneItem>>>(emptyMap())
     val groupItems: StateFlow<Map<String, List<OBSSceneItem>>> = _groupItems
 
+    private val _sceneCollections = MutableStateFlow<List<String>>(emptyList())
+    val sceneCollections: StateFlow<List<String>> = _sceneCollections
+
+    private val _currentSceneCollection = MutableStateFlow("")
+    val currentSceneCollection: StateFlow<String> = _currentSceneCollection
+
+    // inputName → per-channel peak levels (0.0–1.0)
+    private val _volumeMeters = MutableStateFlow<Map<String, List<Float>>>(emptyMap())
+    val volumeMeters: StateFlow<Map<String, List<Float>>> = _volumeMeters
+
     // ── Connection ────────────────────────────────────────────────────────────
 
     fun connect(host: String, port: Int, password: String) {
@@ -118,6 +128,9 @@ class OBSWebSocketClient {
         filterSourceName = ""
         _inputSettings.value = null
         _groupItems.value = emptyMap()
+        _sceneCollections.value = emptyList()
+        _currentSceneCollection.value = ""
+        _volumeMeters.value = emptyMap()
     }
 
     // ── Message handling ──────────────────────────────────────────────────────
@@ -163,6 +176,7 @@ class OBSWebSocketClient {
         fetchStreamStatus()
         fetchRecordStatus()
         fetchStudioMode()
+        fetchSceneCollectionList()
     }
 
     private fun onEvent(d: JsonObject) {
@@ -233,6 +247,30 @@ class OBSWebSocketClient {
                         if (it.filterName == fn) it.copy(filterEnabled = enabled) else it
                     }
                 }
+            }
+
+            "CurrentSceneCollectionChanged" -> {
+                val name = data.get("sceneCollectionName")?.asString ?: return
+                _currentSceneCollection.value = name
+                fetchSceneCollectionList()
+            }
+
+            "InputVolumeMeters" -> {
+                val arr = data.getAsJsonArray("inputs") ?: return
+                val updated = _volumeMeters.value.toMutableMap()
+                arr.forEach { el ->
+                    runCatching {
+                        val obj = el.asJsonObject
+                        val name = obj.get("inputName")?.asString ?: return@runCatching
+                        val levels = obj.getAsJsonArray("inputLevelsMul") ?: return@runCatching
+                        // Each element is [magnitude, peak] per channel; collect the peak (index 1) per channel
+                        val peaks = levels.mapNotNull { ch ->
+                            ch.asJsonArray?.get(1)?.asFloat
+                        }
+                        updated[name] = peaks
+                    }
+                }
+                _volumeMeters.value = updated
             }
         }
     }
@@ -372,6 +410,14 @@ class OBSWebSocketClient {
             addProperty("sceneName", sceneName)
             addProperty("sceneItemId", sceneItemId)
         })
+    }
+
+    fun setSceneItemIndex(sceneName: String, sceneItemId: Int, sceneItemIndex: Int) {
+        request("SetSceneItemIndex", JsonObject().apply {
+            addProperty("sceneName", sceneName)
+            addProperty("sceneItemId", sceneItemId)
+            addProperty("sceneItemIndex", sceneItemIndex)
+        }) { fetchSceneItems(sceneName) }
     }
 
     // ── Sources ───────────────────────────────────────────────────────────────
@@ -544,6 +590,35 @@ class OBSWebSocketClient {
             addProperty("inputName", inputName)
             add("inputSettings", partialSettings.toJsonObject())
             addProperty("overlay", true)
+        })
+    }
+
+    // ── Scene ordering ────────────────────────────────────────────────────────
+
+    fun setSceneIndex(sceneName: String, sceneIndex: Int) {
+        request("SetSceneIndex", JsonObject().apply {
+            addProperty("sceneName", sceneName)
+            addProperty("sceneIndex", sceneIndex)
+        }) { fetchSceneList() }
+    }
+
+    // ── Scene collections ─────────────────────────────────────────────────────
+
+    fun fetchSceneCollectionList() {
+        request("GetSceneCollectionList") { data ->
+            val current = data.get("currentSceneCollectionName")
+                ?.takeIf { !it.isJsonNull }?.asString ?: ""
+            val arr = data.getAsJsonArray("sceneCollections")
+            _currentSceneCollection.value = current
+            _sceneCollections.value = arr?.mapNotNull { el ->
+                el.takeIf { !it.isJsonNull }?.asString
+            } ?: emptyList()
+        }
+    }
+
+    fun setCurrentSceneCollection(name: String) {
+        request("SetCurrentSceneCollection", JsonObject().apply {
+            addProperty("sceneCollectionName", name)
         })
     }
 

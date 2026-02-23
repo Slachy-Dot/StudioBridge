@@ -60,6 +60,20 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
     val groupItems = client.groupItems
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
+    val sceneCollections = client.sceneCollections
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val currentSceneCollection = client.currentSceneCollection
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val volumeMeters = client.volumeMeters
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    // Recording timer (seconds elapsed since record start)
+    private val _recordingTimeSec = MutableStateFlow(0L)
+    val recordingTimeSec: StateFlow<Long> = _recordingTimeSec
+    private var recordTimerJob: Job? = null
+
     private var sceneItemsScene: String = ""
 
     fun loadSceneItems(sceneName: String) {
@@ -75,6 +89,13 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteSceneItem(sceneItemId: Int) {
         if (sceneItemsScene.isNotEmpty())
             client.removeSceneItem(sceneItemsScene, sceneItemId)
+    }
+
+    fun reorderSceneItem(sceneItemId: Int, newUiIndex: Int) {
+        if (sceneItemsScene.isEmpty()) return
+        val size = client.sceneItems.value.size
+        val obsIndex = (size - 1 - newUiIndex).coerceIn(0, size - 1)
+        client.setSceneItemIndex(sceneItemsScene, sceneItemId, obsIndex)
     }
 
     // ── Profile management ────────────────────────────────────────────────────
@@ -151,6 +172,7 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     is ConnectionState.Disconnected, is ConnectionState.Error -> {
                         stopScreenshotPolling()
+                        stopRecordTimer()
                         if (!manualDisconnect && lastProfile != null) {
                             scheduleReconnect()
                         }
@@ -159,6 +181,29 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+
+        viewModelScope.launch {
+            recordActive.collect { active ->
+                if (active) startRecordTimer() else stopRecordTimer()
+            }
+        }
+    }
+
+    private fun startRecordTimer() {
+        recordTimerJob?.cancel()
+        _recordingTimeSec.value = 0L
+        recordTimerJob = viewModelScope.launch {
+            while (true) {
+                delay(1_000L)
+                _recordingTimeSec.value++
+            }
+        }
+    }
+
+    private fun stopRecordTimer() {
+        recordTimerJob?.cancel()
+        recordTimerJob = null
+        _recordingTimeSec.value = 0L
     }
 
     private fun startScreenshotPolling() {
@@ -217,6 +262,16 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleStudioMode() = client.setStudioModeEnabled(!client.studioModeEnabled.value)
+
+    /** Move a scene to a new position in the list.
+     *  [uiIndex] is the 0-based index in our (reversed) scenes list;
+     *  OBS stores scenes bottom-up, so we convert before sending. */
+    fun reorderScene(sceneName: String, uiIndex: Int) {
+        val obsIndex = (client.scenes.value.size - 1 - uiIndex).coerceAtLeast(0)
+        client.setSceneIndex(sceneName, obsIndex)
+    }
+
+    fun setSceneCollection(name: String) = client.setCurrentSceneCollection(name)
 
     // ── Stream controls ───────────────────────────────────────────────────────
 
@@ -386,6 +441,14 @@ class OBSViewModel(app: Application) : AndroidViewModel(app) {
     fun setChatUsernameSize(sp: Float) { store.setChatUsernameSize(sp); _chatUsernameSize.value = sp }
     fun setAnimatedEmotes(enabled: Boolean) { store.setAnimatedEmotes(enabled); _animatedEmotes.value = enabled }
     fun setShowDebugBar(enabled: Boolean) { store.setShowDebugBar(enabled); _showDebugBar.value = enabled }
+
+    private val _showMiniMixer = MutableStateFlow(store.getShowMiniMixer())
+    val showMiniMixer: StateFlow<Boolean> = _showMiniMixer
+    fun setShowMiniMixer(enabled: Boolean) { store.setShowMiniMixer(enabled); _showMiniMixer.value = enabled }
+
+    private val _showCollectionChip = MutableStateFlow(store.getShowCollectionChip())
+    val showCollectionChip: StateFlow<Boolean> = _showCollectionChip
+    fun setShowCollectionChip(enabled: Boolean) { store.setShowCollectionChip(enabled); _showCollectionChip.value = enabled }
 
     // ── Source management ─────────────────────────────────────────────────────
 

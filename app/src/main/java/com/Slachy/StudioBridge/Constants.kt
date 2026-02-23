@@ -4,8 +4,8 @@ package com.Slachy.StudioBridge
 internal const val DEFAULT_OBS_PORT = 4455
 
 // ── OBS WebSocket protocol ────────────────────────────────────────────────────
-// General(1) + Scenes(4) + Inputs(8) + Outputs(64) + SceneItems(128) + Filters(2) + Ui(1024)
-internal const val OBS_EVENT_SUBSCRIPTIONS = 1231
+// General(1) + Config(2) + Scenes(4) + Inputs(8) + Outputs(64) + SceneItems(128) + Ui(1024) + InputVolumeMeters(65536)
+internal const val OBS_EVENT_SUBSCRIPTIONS = 66767
 internal const val SCREENSHOT_WIDTH        = 320
 internal const val SCREENSHOT_HEIGHT       = 180
 internal const val SCREENSHOT_QUALITY      = 60

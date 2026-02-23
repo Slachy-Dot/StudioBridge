@@ -29,6 +29,8 @@ fun SettingsDialog(
     enable7tv: Boolean,
     enableBttv: Boolean,
     enableFfz: Boolean,
+    showMiniMixer: Boolean,
+    showCollectionChip: Boolean,
     onSaveChannel: (String) -> Unit,
     onFontSizeChange: (Float) -> Unit,
     onLineSpacingChange: (Float) -> Unit,
@@ -39,6 +41,8 @@ fun SettingsDialog(
     onEnable7tvChange: (Boolean) -> Unit,
     onEnableBttvChange: (Boolean) -> Unit,
     onEnableFfzChange: (Boolean) -> Unit,
+    onShowMiniMixerChange: (Boolean) -> Unit,
+    onShowCollectionChipChange: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     var channelInput by remember(twitchChannel) { mutableStateOf(twitchChannel) }
@@ -190,7 +194,7 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Text("Animated Emotes", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Show GIFs as moving images",
@@ -209,7 +213,7 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                         Text("Show Debug Bar", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("Show emote load counts in chat header",
@@ -220,6 +224,42 @@ fun SettingsDialog(
                         checked = showDebugBar,
                         onCheckedChange = onShowDebugBarChange
                     )
+                }
+
+                HorizontalDivider()
+
+                // ── Scenes tab UI ──────────────────────────────────────────
+                Text("Scenes Tab", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text("Mini Mixer", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Show audio controls on scenes tab",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    }
+                    Switch(checked = showMiniMixer, onCheckedChange = onShowMiniMixerChange)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                        Text("Scene Collection Switcher", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Show chip to switch between collections",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                    }
+                    Switch(checked = showCollectionChip, onCheckedChange = onShowCollectionChipChange)
                 }
 
                 HorizontalDivider()

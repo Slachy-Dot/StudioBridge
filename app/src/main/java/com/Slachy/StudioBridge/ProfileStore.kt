@@ -63,6 +63,12 @@ class ProfileStore(context: Context) {
     fun getEnableFfz(): Boolean = prefs.getBoolean("enable_ffz", true)
     fun setEnableFfz(enabled: Boolean) = prefs.edit().putBoolean("enable_ffz", enabled).apply()
 
+    fun getShowMiniMixer(): Boolean = prefs.getBoolean("show_mini_mixer", true)
+    fun setShowMiniMixer(enabled: Boolean) = prefs.edit().putBoolean("show_mini_mixer", enabled).apply()
+
+    fun getShowCollectionChip(): Boolean = prefs.getBoolean("show_collection_chip", true)
+    fun setShowCollectionChip(enabled: Boolean) = prefs.edit().putBoolean("show_collection_chip", enabled).apply()
+
     /** One-time migration from the old single-profile storage. */
     fun migrateFromLegacy(context: Context) {
         if (getProfiles().isNotEmpty()) return
