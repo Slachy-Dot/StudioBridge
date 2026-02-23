@@ -53,7 +53,7 @@ fun FiltersSheet(
 
     if (showAddDialog) {
         AddFilterDialog(
-            title = if (filterTypes === VIDEO_FILTER_TYPES) "Add Video Filter" else "Add Audio Filter",
+            title = if (filterTypes == VIDEO_FILTER_TYPES) "Add Video Filter" else "Add Audio Filter",
             filterTypes = filterTypes,
             onAdd = { name, kind ->
                 onAddFilter(name, kind)

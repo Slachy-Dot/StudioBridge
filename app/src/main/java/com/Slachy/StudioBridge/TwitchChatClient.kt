@@ -79,7 +79,7 @@ class TwitchChatClient {
                         val eqIdx = tag.indexOf('=')
                         if (eqIdx >= 0 && tag.substring(0, eqIdx) == "room-id") {
                             val id = tag.substring(eqIdx + 1)
-                            if (id.isNotEmpty()) _roomId.value = id
+                            if (id.toLongOrNull() != null) _roomId.value = id
                         }
                     }
                 }

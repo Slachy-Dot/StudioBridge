@@ -32,7 +32,6 @@ class OBSWebSocketClient {
     private val gson = Gson()
 
     private var socket: WebSocket? = null
-    private var password: String = ""
 
     private val pending = ConcurrentHashMap<String, (JsonObject) -> Unit>()
 
@@ -75,7 +74,7 @@ class OBSWebSocketClient {
     private val _filters = MutableStateFlow<List<OBSFilter>>(emptyList())
     val filters: StateFlow<List<OBSFilter>> = _filters
 
-    private var filterSourceName = ""
+    @Volatile private var filterSourceName = ""
 
     private val _inputSettings = MutableStateFlow<Map<String, Any>?>(null)
     val inputSettings: StateFlow<Map<String, Any>?> = _inputSettings
@@ -86,12 +85,11 @@ class OBSWebSocketClient {
     // ── Connection ────────────────────────────────────────────────────────────
 
     fun connect(host: String, port: Int, password: String) {
-        this.password = password
         _state.value = ConnectionState.Connecting
 
         val req = Request.Builder().url("ws://$host:$port").build()
         socket = http.newWebSocket(req, object : WebSocketListener() {
-            override fun onMessage(webSocket: WebSocket, text: String) = handleMessage(text)
+            override fun onMessage(webSocket: WebSocket, text: String) = handleMessage(text, password)
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 _state.value = ConnectionState.Error(t.message ?: "Connection failed")
@@ -124,20 +122,20 @@ class OBSWebSocketClient {
 
     // ── Message handling ──────────────────────────────────────────────────────
 
-    private fun handleMessage(text: String) {
+    private fun handleMessage(text: String, password: String) {
         val msg = JsonParser.parseString(text).asJsonObject
         val op = msg.get("op")?.takeIf { !it.isJsonNull }?.asInt ?: return
         val d  = msg.get("d")?.takeIf { !it.isJsonNull }?.asJsonObject ?: return
 
         when (op) {
-            0 -> onHello(d)
+            0 -> onHello(d, password)
             2 -> onIdentified()
             5 -> onEvent(d)
             7 -> onResponse(d)
         }
     }
 
-    private fun onHello(d: JsonObject) {
+    private fun onHello(d: JsonObject, password: String) {
         val authSection = if (d.has("authentication")) d.getAsJsonObject("authentication") else null
 
         val authToken = if (authSection != null && password.isNotEmpty()) {
@@ -259,7 +257,7 @@ class OBSWebSocketClient {
         request("GetSceneList") { data ->
             val arr = data.getAsJsonArray("scenes")
             _scenes.value = arr.map { OBSScene(it.asJsonObject.get("sceneName").asString) }.reversed()
-            _currentScene.value = data.get("currentProgramSceneName")?.asString ?: ""
+            _currentScene.value = data.get("currentProgramSceneName")?.takeIf { !it.isJsonNull }?.asString ?: ""
         }
     }
 

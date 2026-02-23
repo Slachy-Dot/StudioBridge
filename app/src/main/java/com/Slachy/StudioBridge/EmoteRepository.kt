@@ -93,8 +93,9 @@ class EmoteRepository {
 
     private fun get(url: String): String? = try {
         val req = Request.Builder().url(url).build()
-        val resp = http.newCall(req).execute()
-        if (resp.isSuccessful) resp.body?.string() else null
+        http.newCall(req).execute().use { resp ->
+            if (resp.isSuccessful) resp.body?.string() else null
+        }
     } catch (_: Exception) { null }
 
     // ── 7TV global emotes ─────────────────────────────────────────────────────
